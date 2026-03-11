@@ -149,6 +149,7 @@ comptime {
         @export(&c.terminal_resize, .{ .name = "ghostty_terminal_resize" });
         @export(&c.terminal_plain_string, .{ .name = "ghostty_terminal_plain_string" });
         @export(&c.terminal_plain_string_free, .{ .name = "ghostty_terminal_plain_string_free" });
+        @export(&c.terminal_set_sequence_callback, .{ .name = "ghostty_terminal_set_sequence_callback" });
         @export(&c.terminal_scrollback_rows, .{ .name = "ghostty_terminal_scrollback_rows" });
         @export(&c.terminal_total_rows, .{ .name = "ghostty_terminal_total_rows" });
         @export(&c.terminal_get_row, .{ .name = "ghostty_terminal_get_row" });

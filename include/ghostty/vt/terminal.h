@@ -7,10 +7,25 @@
 #ifndef GHOSTTY_VT_TERMINAL_H
 #define GHOSTTY_VT_TERMINAL_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <ghostty/vt/result.h>
 #include <ghostty/vt/allocator.h>
+
+/**
+ * Callback function type for sequence events.
+ *
+ * Called after each VT escape sequence is processed. The action parameter
+ * identifies which sequence was processed (e.g., print, cursor movement,
+ * mode change). Query terminal state for details.
+ *
+ * @param action Action tag identifying the processed sequence
+ * @param userdata User-provided context pointer
+ *
+ * @ingroup terminal
+ */
+typedef void (*GhosttySequenceCallback)(int action, void *userdata);
 
 /**
  * Opaque handle to a VT terminal instance.
@@ -239,6 +254,25 @@ GhosttyResult ghostty_terminal_plain_string(
 void ghostty_terminal_plain_string_free(
     GhosttyTerminal terminal,
     GhosttyTerminalString str
+);
+
+/**
+ * Set a callback to be invoked after each VT escape sequence is processed.
+ *
+ * The callback receives an action tag (int) identifying the sequence type
+ * and the provided userdata pointer. Pass NULL for callback to remove
+ * a previously set callback.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param callback The callback function, or NULL to remove
+ * @param userdata User context pointer passed to each callback invocation
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_set_sequence_callback(
+    GhosttyTerminal terminal,
+    GhosttySequenceCallback callback,
+    void *userdata
 );
 
 /**

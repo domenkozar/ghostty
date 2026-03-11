@@ -3,20 +3,52 @@ const lib_alloc = @import("../../lib/allocator.zig");
 const CAllocator = lib_alloc.Allocator;
 const Terminal = @import("../Terminal.zig");
 const ReadonlyHandler = @import("../stream_readonly.zig").Handler;
-const ReadonlyStream = @import("../stream_readonly.zig").Stream;
+const streampkg = @import("../stream.zig");
+const Action = streampkg.Action;
 const Result = @import("result.zig").Result;
 const pagepkg = @import("../page.zig");
 const stylepkg = @import("../style.zig");
 const point = @import("../point.zig");
 const PageList = @import("../PageList.zig");
 
+/// C: GhosttySequenceCallback
+pub const SequenceCallback = *const fn (c_int, ?*anyopaque) callconv(.c) void;
+
+/// Handler that wraps ReadonlyHandler with optional sequence callback support.
+const CallbackHandler = struct {
+    inner: ReadonlyHandler,
+    callback: ?SequenceCallback = null,
+    userdata: ?*anyopaque = null,
+
+    pub fn init(terminal: *Terminal) CallbackHandler {
+        return .{ .inner = ReadonlyHandler.init(terminal) };
+    }
+
+    pub fn deinit(self: *CallbackHandler) void {
+        self.inner.deinit();
+    }
+
+    pub fn vt(
+        self: *CallbackHandler,
+        comptime action: Action.Tag,
+        value: Action.Value(action),
+    ) !void {
+        try self.inner.vt(action, value);
+        if (self.callback) |cb| {
+            cb(@intFromEnum(action), self.userdata);
+        }
+    }
+};
+
+const CallbackStream = streampkg.Stream(CallbackHandler);
+
 /// Wrapper that holds the terminal, stream handler, stream, and allocator.
 /// All four fields live in one heap-allocated struct so pointers stay stable
 /// (Handler holds *Terminal).
 const Wrapper = struct {
     terminal: Terminal,
-    handler: ReadonlyHandler,
-    stream: ReadonlyStream,
+    handler: CallbackHandler,
+    stream: CallbackStream,
     alloc: std.mem.Allocator,
 };
 
@@ -47,8 +79,8 @@ pub fn new(
         alloc.destroy(wrapper);
         return .out_of_memory;
     };
-    wrapper.handler = ReadonlyHandler.init(&wrapper.terminal);
-    wrapper.stream = ReadonlyStream.initAlloc(alloc, wrapper.handler);
+    wrapper.handler = CallbackHandler.init(&wrapper.terminal);
+    wrapper.stream = CallbackStream.initAlloc(alloc, wrapper.handler);
     wrapper.alloc = alloc;
     result.* = wrapper;
     return .success;
@@ -137,6 +169,20 @@ pub fn plain_string_free(
     const wrapper = handle orelse return;
     const ptr = str.ptr orelse return;
     wrapper.alloc.free(ptr[0..str.len]);
+}
+
+// ---------------------------------------------------------------------------
+// Sequence event callbacks
+// ---------------------------------------------------------------------------
+
+pub fn set_sequence_callback(
+    handle: Handle,
+    callback: ?SequenceCallback,
+    userdata: ?*anyopaque,
+) callconv(.c) void {
+    const wrapper = handle orelse return;
+    wrapper.handler.callback = callback;
+    wrapper.handler.userdata = userdata;
 }
 
 // ---------------------------------------------------------------------------
@@ -596,4 +642,39 @@ test "get_cells null safety" {
     try std.testing.expectEqual(Result.success, get_style(null, 0, 0, &style));
 
     try std.testing.expectEqual(@as(usize, 0), get_grapheme(null, 0, 0, undefined, 0));
+}
+
+test "sequence callback" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        10,
+        5,
+        &h,
+    ));
+    defer free(h);
+
+    const S = struct {
+        var call_count: usize = 0;
+        fn callback(_: c_int, _: ?*anyopaque) callconv(.c) void {
+            call_count += 1;
+        }
+    };
+
+    S.call_count = 0;
+    set_sequence_callback(h, S.callback, null);
+
+    const text = "AB";
+    try std.testing.expectEqual(Result.success, write(h, text.ptr, text.len));
+    try std.testing.expect(S.call_count >= 2); // at least 2 print actions
+
+    // Unset callback
+    set_sequence_callback(h, null, null);
+    S.call_count = 0;
+    try std.testing.expectEqual(Result.success, write(h, text.ptr, text.len));
+    try std.testing.expectEqual(@as(usize, 0), S.call_count);
+}
+
+test "sequence callback null safety" {
+    set_sequence_callback(null, null, null);
 }

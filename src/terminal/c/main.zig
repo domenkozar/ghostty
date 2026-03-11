@@ -71,6 +71,7 @@ pub const terminal_get_cursor_pos = terminal.get_cursor_pos;
 pub const terminal_resize = terminal.resize;
 pub const terminal_plain_string = terminal.plain_string;
 pub const terminal_plain_string_free = terminal.plain_string_free;
+pub const terminal_set_sequence_callback = terminal.set_sequence_callback;
 pub const terminal_scrollback_rows = terminal.scrollback_rows;
 pub const terminal_total_rows = terminal.total_rows;
 pub const terminal_get_row = terminal.get_row;
