@@ -49,6 +49,72 @@ typedef struct {
 } GhosttyTerminalString;
 
 /**
+ * Row metadata for a single terminal row.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+    bool wrap;               /**< Row is soft-wrapped (continues on next row) */
+    bool wrap_continuation;  /**< Row is continuation of previous wrapped row */
+    bool styled;             /**< Row contains styled cells */
+    bool hyperlink;          /**< Row contains hyperlinked cells */
+    uint8_t semantic_prompt; /**< 0=none, 1=prompt, 2=prompt_continuation */
+} GhosttyTerminalRow;
+
+/**
+ * Cell data for a single terminal cell.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+    uint32_t codepoint;      /**< Primary codepoint (0 for empty/bg-only cells) */
+    uint16_t style_id;       /**< Style ID (0 = default, no lookup needed) */
+    uint8_t content_tag;     /**< 0=codepoint, 1=grapheme, 2=bg_palette, 3=bg_rgb */
+    uint8_t wide;            /**< 0=narrow, 1=wide, 2=spacer_tail, 3=spacer_head */
+    uint8_t bg_palette;      /**< Palette index (valid when content_tag == 2) */
+    uint8_t bg_r;            /**< Red component (valid when content_tag == 3) */
+    uint8_t bg_g;            /**< Green component (valid when content_tag == 3) */
+    uint8_t bg_b;            /**< Blue component (valid when content_tag == 3) */
+    bool has_grapheme;       /**< True if cell has multi-codepoint grapheme */
+    bool is_hyperlink;       /**< True if cell is part of a hyperlink */
+    uint8_t semantic_content; /**< 0=output, 1=input, 2=prompt */
+    bool is_protected;       /**< Cell has protection attribute set */
+} GhosttyTerminalCell;
+
+/**
+ * Color value used in styles. Discriminated by tag.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+    uint8_t tag;     /**< 0=none, 1=palette, 2=rgb */
+    uint8_t palette; /**< Palette index (valid when tag == 1) */
+    uint8_t r;       /**< Red component (valid when tag == 2) */
+    uint8_t g;       /**< Green component (valid when tag == 2) */
+    uint8_t b;       /**< Blue component (valid when tag == 2) */
+} GhosttyTerminalColor;
+
+/**
+ * Style attributes for a terminal cell.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+    GhosttyTerminalColor fg;              /**< Foreground color */
+    GhosttyTerminalColor bg;              /**< Background color */
+    GhosttyTerminalColor underline_color; /**< Underline color */
+    uint8_t underline; /**< 0=none, 1=single, 2=double, 3=curly, 4=dotted, 5=dashed */
+    bool bold;
+    bool italic;
+    bool faint;
+    bool blink;
+    bool inverse;
+    bool invisible;
+    bool strikethrough;
+    bool overline;
+} GhosttyTerminalStyle;
+
+/**
  * Create a new VT terminal instance.
  *
  * @param allocator Pointer to the allocator, or NULL for the default allocator
@@ -173,6 +239,114 @@ GhosttyResult ghostty_terminal_plain_string(
 void ghostty_terminal_plain_string_free(
     GhosttyTerminal terminal,
     GhosttyTerminalString str
+);
+
+/**
+ * Get the number of scrollback rows (rows above the active area).
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @return Number of scrollback rows
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_scrollback_rows(GhosttyTerminal terminal);
+
+/**
+ * Get the total number of rows (scrollback + active area).
+ *
+ * All row/cell access functions use screen coordinates where y=0 is the
+ * top of scrollback. The active area starts at y = scrollback_rows().
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @return Total number of rows
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_total_rows(GhosttyTerminal terminal);
+
+/**
+ * Get row metadata for a given screen row.
+ *
+ * Uses screen coordinates: y=0 is the top of scrollback, the active area
+ * starts at y = ghostty_terminal_scrollback_rows().
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param y Screen row coordinate (0-indexed)
+ * @param row Pointer to store row metadata
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_get_row(
+    GhosttyTerminal terminal,
+    size_t y,
+    GhosttyTerminalRow *row
+);
+
+/**
+ * Get cell data for all cells in a screen row.
+ *
+ * Fills the provided buffer with cell data. The buffer should be at least
+ * as large as the terminal width (from ghostty_terminal_get_size()).
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param y Screen row coordinate (0-indexed)
+ * @param cells Buffer to fill with cell data
+ * @param max_cells Maximum number of cells to write
+ * @return Number of cells written
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_get_cells(
+    GhosttyTerminal terminal,
+    size_t y,
+    GhosttyTerminalCell *cells,
+    size_t max_cells
+);
+
+/**
+ * Look up style attributes for a given style ID.
+ *
+ * The style_id comes from GhosttyTerminalCell.style_id. A style_id of 0
+ * is the default style (no attributes set). The y coordinate is needed
+ * because styles are stored per-page internally.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param y Screen row coordinate (identifies the page for style lookup)
+ * @param style_id Style ID from a cell in that row
+ * @param style Pointer to store style attributes
+ * @return GHOSTTY_SUCCESS on success, GHOSTTY_INVALID_VALUE if y is out of range
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_get_style(
+    GhosttyTerminal terminal,
+    size_t y,
+    uint16_t style_id,
+    GhosttyTerminalStyle *style
+);
+
+/**
+ * Get the full codepoint sequence for a cell's grapheme cluster.
+ *
+ * Returns the primary codepoint followed by any combining/extension
+ * codepoints. For simple cells this returns 1 codepoint. For cells with
+ * has_grapheme=true, this returns the complete grapheme cluster.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param y Screen row coordinate
+ * @param x Column coordinate
+ * @param codepoints Buffer to fill with codepoints (as uint32_t)
+ * @param max Maximum number of codepoints to write
+ * @return Number of codepoints written (0 if cell is empty or out of range)
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_get_grapheme(
+    GhosttyTerminal terminal,
+    size_t y,
+    uint16_t x,
+    uint32_t *codepoints,
+    size_t max
 );
 
 /** @} */
