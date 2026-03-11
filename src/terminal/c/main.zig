@@ -1,6 +1,7 @@
 pub const color = @import("color.zig");
 pub const osc = @import("osc.zig");
 pub const parser = @import("parser.zig");
+pub const terminal = @import("terminal.zig");
 pub const key_event = @import("key_event.zig");
 pub const key_encode = @import("key_encode.zig");
 pub const paste = @import("paste.zig");
@@ -61,10 +62,21 @@ pub const parser_dcs = parser.dcs;
 
 pub const paste_is_safe = paste.is_safe;
 
+pub const terminal_new = terminal.new;
+pub const terminal_free = terminal.free;
+pub const terminal_full_reset = terminal.full_reset;
+pub const terminal_write = terminal.write;
+pub const terminal_get_size = terminal.get_size;
+pub const terminal_get_cursor_pos = terminal.get_cursor_pos;
+pub const terminal_resize = terminal.resize;
+pub const terminal_plain_string = terminal.plain_string;
+pub const terminal_plain_string_free = terminal.plain_string_free;
+
 test {
     _ = color;
     _ = osc;
     _ = parser;
+    _ = terminal;
     _ = key_event;
     _ = key_encode;
     _ = paste;
