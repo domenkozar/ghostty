@@ -140,6 +140,15 @@ comptime {
         @export(&c.osc_command_type, .{ .name = "ghostty_osc_command_type" });
         @export(&c.osc_command_data, .{ .name = "ghostty_osc_command_data" });
         @export(&c.paste_is_safe, .{ .name = "ghostty_paste_is_safe" });
+        @export(&c.terminal_new, .{ .name = "ghostty_terminal_new" });
+        @export(&c.terminal_free, .{ .name = "ghostty_terminal_free" });
+        @export(&c.terminal_full_reset, .{ .name = "ghostty_terminal_full_reset" });
+        @export(&c.terminal_write, .{ .name = "ghostty_terminal_write" });
+        @export(&c.terminal_get_size, .{ .name = "ghostty_terminal_get_size" });
+        @export(&c.terminal_get_cursor_pos, .{ .name = "ghostty_terminal_get_cursor_pos" });
+        @export(&c.terminal_resize, .{ .name = "ghostty_terminal_resize" });
+        @export(&c.terminal_plain_string, .{ .name = "ghostty_terminal_plain_string" });
+        @export(&c.terminal_plain_string_free, .{ .name = "ghostty_terminal_plain_string_free" });
         @export(&c.color_rgb_get, .{ .name = "ghostty_color_rgb_get" });
         @export(&c.sgr_new, .{ .name = "ghostty_sgr_new" });
         @export(&c.sgr_free, .{ .name = "ghostty_sgr_free" });
