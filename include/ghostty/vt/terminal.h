@@ -18,14 +18,19 @@
  *
  * Called after each VT escape sequence is processed. The action parameter
  * identifies which sequence was processed (e.g., print, cursor movement,
- * mode change). Query terminal state for details.
+ * mode change). The value parameter carries action-specific data:
+ *   - set_mode/reset_mode/save_mode/restore_mode/request_mode: DEC/ANSI mode number
+ *   - kitty_keyboard_push/set/set_or/set_not: flags bitmask
+ *   - kitty_keyboard_pop: pop count
+ *   - All others: 0
  *
  * @param action Action tag identifying the processed sequence
+ * @param value Action-specific value (mode number, flags, etc.)
  * @param userdata User-provided context pointer
  *
  * @ingroup terminal
  */
-typedef void (*GhosttySequenceCallback)(int action, void *userdata);
+typedef void (*GhosttySequenceCallback)(int action, int64_t value, void *userdata);
 
 /**
  * Opaque handle to a VT terminal instance.

@@ -12,7 +12,7 @@ const point = @import("../point.zig");
 const PageList = @import("../PageList.zig");
 
 /// C: GhosttySequenceCallback
-pub const SequenceCallback = *const fn (c_int, ?*anyopaque) callconv(.c) void;
+pub const SequenceCallback = *const fn (c_int, i64, ?*anyopaque) callconv(.c) void;
 
 /// Handler that wraps ReadonlyHandler with optional sequence callback support.
 const CallbackHandler = struct {
@@ -35,7 +35,28 @@ const CallbackHandler = struct {
     ) !void {
         try self.inner.vt(action, value);
         if (self.callback) |cb| {
-            cb(@intFromEnum(action), self.userdata);
+            const c_value: i64 = comptime_value: {
+                // Mode number (DEC private mode or ANSI mode).
+                if (action == .set_mode or
+                    action == .reset_mode or
+                    action == .save_mode or
+                    action == .restore_mode or
+                    action == .request_mode)
+                    break :comptime_value @intCast(@intFromEnum(value.mode));
+
+                // Kitty keyboard: flags for push/set variants, pop count for pop.
+                if (action == .kitty_keyboard_push or
+                    action == .kitty_keyboard_set or
+                    action == .kitty_keyboard_set_or or
+                    action == .kitty_keyboard_set_not)
+                    break :comptime_value @intCast(@as(u5, @bitCast(value.flags)));
+
+                if (action == .kitty_keyboard_pop)
+                    break :comptime_value @intCast(value);
+
+                break :comptime_value 0;
+            };
+            cb(@intFromEnum(action), c_value, self.userdata);
         }
     }
 };
@@ -656,7 +677,7 @@ test "sequence callback" {
 
     const S = struct {
         var call_count: usize = 0;
-        fn callback(_: c_int, _: ?*anyopaque) callconv(.c) void {
+        fn callback(_: c_int, _: i64, _: ?*anyopaque) callconv(.c) void {
             call_count += 1;
         }
     };
