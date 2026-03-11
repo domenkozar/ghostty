@@ -74,6 +74,7 @@ extern "C" {
 
 #include <ghostty/vt/result.h>
 #include <ghostty/vt/allocator.h>
+#include <ghostty/vt/parser.h>
 #include <ghostty/vt/osc.h>
 #include <ghostty/vt/sgr.h>
 #include <ghostty/vt/key.h>

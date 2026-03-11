@@ -1,5 +1,6 @@
 pub const color = @import("color.zig");
 pub const osc = @import("osc.zig");
+pub const parser = @import("parser.zig");
 pub const key_event = @import("key_event.zig");
 pub const key_encode = @import("key_encode.zig");
 pub const paste = @import("paste.zig");
@@ -50,11 +51,20 @@ pub const key_encoder_free = key_encode.free;
 pub const key_encoder_setopt = key_encode.setopt;
 pub const key_encoder_encode = key_encode.encode;
 
+pub const parser_new = parser.new;
+pub const parser_free = parser.free;
+pub const parser_reset = parser.reset;
+pub const parser_next = parser.next;
+pub const parser_csi = parser.csi;
+pub const parser_esc = parser.esc;
+pub const parser_dcs = parser.dcs;
+
 pub const paste_is_safe = paste.is_safe;
 
 test {
     _ = color;
     _ = osc;
+    _ = parser;
     _ = key_event;
     _ = key_encode;
     _ = paste;
