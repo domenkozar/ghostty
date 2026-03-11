@@ -245,6 +245,14 @@ pub fn deinit(self: *Parser) void {
     self.osc_parser.deinit();
 }
 
+/// Reset the parser to its initial ground state, clearing all
+/// accumulated parameters, intermediates, and nested parser state.
+pub fn reset(self: *Parser) void {
+    self.clear();
+    self.state = .ground;
+    self.osc_parser.reset();
+}
+
 /// Next consumes the next character c and returns the actions to execute.
 /// Up to 3 actions may need to be executed -- in order -- representing
 /// the state exit, transition, and entry actions.

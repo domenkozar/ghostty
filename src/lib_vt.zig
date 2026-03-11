@@ -125,6 +125,13 @@ comptime {
         @export(&c.key_encoder_free, .{ .name = "ghostty_key_encoder_free" });
         @export(&c.key_encoder_setopt, .{ .name = "ghostty_key_encoder_setopt" });
         @export(&c.key_encoder_encode, .{ .name = "ghostty_key_encoder_encode" });
+        @export(&c.parser_new, .{ .name = "ghostty_parser_new" });
+        @export(&c.parser_free, .{ .name = "ghostty_parser_free" });
+        @export(&c.parser_reset, .{ .name = "ghostty_parser_reset" });
+        @export(&c.parser_next, .{ .name = "ghostty_parser_next" });
+        @export(&c.parser_csi, .{ .name = "ghostty_parser_csi" });
+        @export(&c.parser_esc, .{ .name = "ghostty_parser_esc" });
+        @export(&c.parser_dcs, .{ .name = "ghostty_parser_dcs" });
         @export(&c.osc_new, .{ .name = "ghostty_osc_new" });
         @export(&c.osc_free, .{ .name = "ghostty_osc_free" });
         @export(&c.osc_next, .{ .name = "ghostty_osc_next" });
