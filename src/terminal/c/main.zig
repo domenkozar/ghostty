@@ -78,6 +78,10 @@ pub const terminal_get_row = terminal.get_row;
 pub const terminal_get_cells = terminal.get_cells;
 pub const terminal_get_style = terminal.get_style;
 pub const terminal_get_grapheme = terminal.get_grapheme;
+pub const terminal_get_cursor_visible = terminal.get_cursor_visible;
+pub const terminal_is_mode_set = terminal.is_mode_set;
+pub const terminal_is_alt_screen = terminal.is_alt_screen;
+pub const terminal_kitty_keyboard_depth = terminal.kitty_keyboard_depth;
 
 test {
     _ = color;

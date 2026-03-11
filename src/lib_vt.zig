@@ -156,6 +156,10 @@ comptime {
         @export(&c.terminal_get_cells, .{ .name = "ghostty_terminal_get_cells" });
         @export(&c.terminal_get_style, .{ .name = "ghostty_terminal_get_style" });
         @export(&c.terminal_get_grapheme, .{ .name = "ghostty_terminal_get_grapheme" });
+        @export(&c.terminal_get_cursor_visible, .{ .name = "ghostty_terminal_get_cursor_visible" });
+        @export(&c.terminal_is_mode_set, .{ .name = "ghostty_terminal_is_mode_set" });
+        @export(&c.terminal_is_alt_screen, .{ .name = "ghostty_terminal_is_alt_screen" });
+        @export(&c.terminal_kitty_keyboard_depth, .{ .name = "ghostty_terminal_kitty_keyboard_depth" });
         @export(&c.color_rgb_get, .{ .name = "ghostty_color_rgb_get" });
         @export(&c.sgr_new, .{ .name = "ghostty_sgr_new" });
         @export(&c.sgr_free, .{ .name = "ghostty_sgr_free" });

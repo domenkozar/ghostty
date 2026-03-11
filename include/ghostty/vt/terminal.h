@@ -388,6 +388,54 @@ size_t ghostty_terminal_get_grapheme(
     size_t max
 );
 
+/**
+ * Get cursor visibility state.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @return true if the cursor is visible (DEC mode 25)
+ *
+ * @ingroup terminal
+ */
+bool ghostty_terminal_get_cursor_visible(GhosttyTerminal terminal);
+
+/**
+ * Query whether a DEC private mode or ANSI mode is currently set.
+ *
+ * The mode parameter is the raw mode number (e.g., 1049 for alt screen,
+ * 2004 for bracketed paste, 25 for cursor visible). DEC private modes
+ * use the plain number; ANSI modes should have bit 15 set (mode | 0x8000).
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param mode Mode number to query
+ * @return true if the mode is currently set
+ *
+ * @ingroup terminal
+ */
+bool ghostty_terminal_is_mode_set(GhosttyTerminal terminal, uint16_t mode);
+
+/**
+ * Query whether the alternate screen buffer is active.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @return true if alternate screen is active
+ *
+ * @ingroup terminal
+ */
+bool ghostty_terminal_is_alt_screen(GhosttyTerminal terminal);
+
+/**
+ * Get the current kitty keyboard protocol stack depth.
+ *
+ * Returns 0 when no push has been done, increments with each push,
+ * decrements with each pop.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @return Current stack depth
+ *
+ * @ingroup terminal
+ */
+uint32_t ghostty_terminal_kitty_keyboard_depth(GhosttyTerminal terminal);
+
 /** @} */
 
 #endif /* GHOSTTY_VT_TERMINAL_H */

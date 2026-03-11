@@ -10,6 +10,7 @@ const pagepkg = @import("../page.zig");
 const stylepkg = @import("../style.zig");
 const point = @import("../point.zig");
 const PageList = @import("../PageList.zig");
+const modespkg = @import("../modes.zig");
 
 /// C: GhosttySequenceCallback
 pub const SequenceCallback = *const fn (c_int, i64, ?*anyopaque) callconv(.c) void;
@@ -204,6 +205,34 @@ pub fn set_sequence_callback(
     const wrapper = handle orelse return;
     wrapper.handler.callback = callback;
     wrapper.handler.userdata = userdata;
+}
+
+// ---------------------------------------------------------------------------
+// Terminal state queries
+// ---------------------------------------------------------------------------
+
+pub fn get_cursor_visible(handle: Handle) callconv(.c) bool {
+    const wrapper = handle orelse return false;
+    return wrapper.terminal.modes.get(.cursor_visible);
+}
+
+pub fn is_mode_set(handle: Handle, mode_raw: u16) callconv(.c) bool {
+    const wrapper = handle orelse return false;
+    const mode = modespkg.modeFromInt(
+        @as(u15, @truncate(mode_raw)),
+        mode_raw & 0x8000 != 0,
+    ) orelse return false;
+    return wrapper.terminal.modes.get(mode);
+}
+
+pub fn is_alt_screen(handle: Handle) callconv(.c) bool {
+    const wrapper = handle orelse return false;
+    return wrapper.terminal.screens.active_key == .alternate;
+}
+
+pub fn kitty_keyboard_depth(handle: Handle) callconv(.c) u32 {
+    const wrapper = handle orelse return 0;
+    return @intCast(wrapper.terminal.screens.active.kitty_keyboard.idx);
 }
 
 // ---------------------------------------------------------------------------
@@ -698,4 +727,135 @@ test "sequence callback" {
 
 test "sequence callback null safety" {
     set_sequence_callback(null, null, null);
+}
+
+test "sequence callback value for set_mode" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    const S = struct {
+        var last_action: c_int = 0;
+        var last_value: i64 = 0;
+        fn callback(action: c_int, value: i64, _: ?*anyopaque) callconv(.c) void {
+            last_action = action;
+            last_value = value;
+        }
+    };
+
+    set_sequence_callback(h, S.callback, null);
+
+    // CSI ? 1049 h — set alt screen mode
+    const seq = "\x1b[?1049h";
+    try std.testing.expectEqual(Result.success, write(h, seq.ptr, seq.len));
+    try std.testing.expectEqual(@as(i64, 1049), S.last_value);
+}
+
+test "cursor visible" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    // Cursor is visible by default
+    try std.testing.expect(get_cursor_visible(h));
+
+    // CSI ? 25 l — hide cursor
+    const hide = "\x1b[?25l";
+    try std.testing.expectEqual(Result.success, write(h, hide.ptr, hide.len));
+    try std.testing.expect(!get_cursor_visible(h));
+
+    // CSI ? 25 h — show cursor
+    const show = "\x1b[?25h";
+    try std.testing.expectEqual(Result.success, write(h, show.ptr, show.len));
+    try std.testing.expect(get_cursor_visible(h));
+}
+
+test "is_mode_set" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    // Bracketed paste off by default
+    try std.testing.expect(!is_mode_set(h, 2004));
+
+    // CSI ? 2004 h — enable bracketed paste
+    const enable = "\x1b[?2004h";
+    try std.testing.expectEqual(Result.success, write(h, enable.ptr, enable.len));
+    try std.testing.expect(is_mode_set(h, 2004));
+
+    // CSI ? 2004 l — disable bracketed paste
+    const disable = "\x1b[?2004l";
+    try std.testing.expectEqual(Result.success, write(h, disable.ptr, disable.len));
+    try std.testing.expect(!is_mode_set(h, 2004));
+
+    // Unknown mode returns false
+    try std.testing.expect(!is_mode_set(h, 9999));
+}
+
+test "is_alt_screen" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    try std.testing.expect(!is_alt_screen(h));
+
+    // CSI ? 1049 h — enter alt screen
+    const enter = "\x1b[?1049h";
+    try std.testing.expectEqual(Result.success, write(h, enter.ptr, enter.len));
+    try std.testing.expect(is_alt_screen(h));
+
+    // CSI ? 1049 l — leave alt screen
+    const leave = "\x1b[?1049l";
+    try std.testing.expectEqual(Result.success, write(h, leave.ptr, leave.len));
+    try std.testing.expect(!is_alt_screen(h));
+}
+
+test "kitty keyboard depth" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    try std.testing.expectEqual(@as(u32, 0), kitty_keyboard_depth(h));
+
+    // CSI > 1 u — push kitty keyboard flags
+    const push = "\x1b[>1u";
+    try std.testing.expectEqual(Result.success, write(h, push.ptr, push.len));
+    try std.testing.expectEqual(@as(u32, 1), kitty_keyboard_depth(h));
+
+    // CSI < u — pop
+    const pop = "\x1b[<u";
+    try std.testing.expectEqual(Result.success, write(h, pop.ptr, pop.len));
+    try std.testing.expectEqual(@as(u32, 0), kitty_keyboard_depth(h));
+}
+
+test "state query null safety" {
+    try std.testing.expect(!get_cursor_visible(null));
+    try std.testing.expect(!is_mode_set(null, 2004));
+    try std.testing.expect(!is_alt_screen(null));
+    try std.testing.expectEqual(@as(u32, 0), kitty_keyboard_depth(null));
 }
