@@ -553,6 +553,9 @@ pub fn Stream(comptime Handler: type) type {
             while (input[offset] == 0x1B) {
                 self.parser.state = .escape;
                 self.parser.clear();
+                if (@hasDecl(T, "seqStart")) {
+                    self.handler.seqStart();
+                }
                 offset += 1;
                 offset += try self.consumeUntilGround(input[offset..]);
                 if (offset >= input.len) return input.len;
@@ -568,6 +571,9 @@ pub fn Stream(comptime Handler: type) type {
                 if (offset >= input.len) return input.len;
                 try self.nextNonUtf8(input[offset]);
                 offset += 1;
+            }
+            if (@hasDecl(T, "seqEnd")) {
+                self.handler.seqEnd();
             }
             return offset;
         }
@@ -633,6 +639,9 @@ pub fn Stream(comptime Handler: type) type {
             if (c == 0x1B) {
                 self.parser.state = .escape;
                 self.parser.clear();
+                if (@hasDecl(T, "seqStart")) {
+                    self.handler.seqStart();
+                }
                 return;
             }
             try self.print(@intCast(c));
@@ -644,6 +653,10 @@ pub fn Stream(comptime Handler: type) type {
         /// we may be in the UTF-8 decoding state call nextSlice or next.
         fn nextNonUtf8(self: *Self, c: u8) !void {
             assert(self.parser.state != .ground);
+
+            if (@hasDecl(T, "rawByte")) {
+                self.handler.rawByte(c);
+            }
 
             // Fast path for CSI entry.
             if (self.parser.state == .escape and c == '[') {
