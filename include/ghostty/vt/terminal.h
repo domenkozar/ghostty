@@ -24,13 +24,20 @@
  *   - kitty_keyboard_pop: pop count
  *   - All others: 0
  *
+ * The raw_bytes/raw_len parameters provide the original bytes of the escape
+ * sequence that triggered this action (starting with ESC). For non-escape
+ * actions (e.g., print), raw_len is 0. The pointer is valid only for the
+ * duration of the callback.
+ *
  * @param action Action tag identifying the processed sequence
  * @param value Action-specific value (mode number, flags, etc.)
+ * @param raw_bytes Original escape sequence bytes (valid during callback only)
+ * @param raw_len Number of bytes in raw_bytes
  * @param userdata User-provided context pointer
  *
  * @ingroup terminal
  */
-typedef void (*GhosttySequenceCallback)(int action, int64_t value, void *userdata);
+typedef void (*GhosttySequenceCallback)(int action, int64_t value, const uint8_t *raw_bytes, size_t raw_len, void *userdata);
 
 /**
  * Opaque handle to a VT terminal instance.

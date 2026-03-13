@@ -12,8 +12,12 @@ const point = @import("../point.zig");
 const PageList = @import("../PageList.zig");
 const modespkg = @import("../modes.zig");
 
+/// Maximum size of a captured raw escape sequence.
+/// Sequences longer than this are truncated in the callback.
+const MAX_SEQ_BUF = 4096;
+
 /// C: GhosttySequenceCallback
-pub const SequenceCallback = *const fn (c_int, i64, ?*anyopaque) callconv(.c) void;
+pub const SequenceCallback = *const fn (c_int, i64, [*]const u8, usize, ?*anyopaque) callconv(.c) void;
 
 /// Handler that wraps ReadonlyHandler with optional sequence callback support.
 const CallbackHandler = struct {
@@ -21,12 +25,43 @@ const CallbackHandler = struct {
     callback: ?SequenceCallback = null,
     userdata: ?*anyopaque = null,
 
+    /// Buffer for accumulating raw bytes of the current escape sequence.
+    seq_buf: [MAX_SEQ_BUF]u8 = undefined,
+    /// Number of valid bytes in seq_buf.
+    seq_len: usize = 0,
+    /// True when we are inside an escape sequence (parser not in ground).
+    in_sequence: bool = false,
+
     pub fn init(terminal: *Terminal) CallbackHandler {
         return .{ .inner = ReadonlyHandler.init(terminal) };
     }
 
     pub fn deinit(self: *CallbackHandler) void {
         self.inner.deinit();
+    }
+
+    /// Called by the stream for each input byte during escape sequences.
+    /// Accumulates raw bytes into seq_buf for the callback.
+    pub fn rawByte(self: *CallbackHandler, byte: u8) void {
+        if (self.in_sequence) {
+            if (self.seq_len < MAX_SEQ_BUF) {
+                self.seq_buf[self.seq_len] = byte;
+                self.seq_len += 1;
+            }
+        }
+    }
+
+    /// Start accumulating a new sequence (called when ESC is seen).
+    pub fn seqStart(self: *CallbackHandler) void {
+        self.in_sequence = true;
+        // The ESC byte itself is part of the sequence.
+        self.seq_buf[0] = 0x1B;
+        self.seq_len = 1;
+    }
+
+    /// End sequence accumulation (called when parser returns to ground).
+    pub fn seqEnd(self: *CallbackHandler) void {
+        self.in_sequence = false;
     }
 
     pub fn vt(
@@ -57,7 +92,8 @@ const CallbackHandler = struct {
 
                 break :comptime_value 0;
             };
-            cb(@intFromEnum(action), c_value, self.userdata);
+            const raw_len = if (self.in_sequence) self.seq_len else 0;
+            cb(@intFromEnum(action), c_value, &self.seq_buf, raw_len, self.userdata);
         }
     }
 };
@@ -706,7 +742,7 @@ test "sequence callback" {
 
     const S = struct {
         var call_count: usize = 0;
-        fn callback(_: c_int, _: i64, _: ?*anyopaque) callconv(.c) void {
+        fn callback(_: c_int, _: i64, _: [*]const u8, _: usize, _: ?*anyopaque) callconv(.c) void {
             call_count += 1;
         }
     };
@@ -742,7 +778,7 @@ test "sequence callback value for set_mode" {
     const S = struct {
         var last_action: c_int = 0;
         var last_value: i64 = 0;
-        fn callback(action: c_int, value: i64, _: ?*anyopaque) callconv(.c) void {
+        fn callback(action: c_int, value: i64, _: [*]const u8, _: usize, _: ?*anyopaque) callconv(.c) void {
             last_action = action;
             last_value = value;
         }
@@ -754,6 +790,42 @@ test "sequence callback value for set_mode" {
     const seq = "\x1b[?1049h";
     try std.testing.expectEqual(Result.success, write(h, seq.ptr, seq.len));
     try std.testing.expectEqual(@as(i64, 1049), S.last_value);
+}
+
+test "sequence callback raw bytes" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    const S = struct {
+        var raw_capture: [64]u8 = undefined;
+        var raw_len: usize = 0;
+        fn callback(_: c_int, _: i64, raw: [*]const u8, len: usize, _: ?*anyopaque) callconv(.c) void {
+            if (len > 0 and len <= 64) {
+                @memcpy(raw_capture[0..len], raw[0..len]);
+                raw_len = len;
+            }
+        }
+    };
+
+    set_sequence_callback(h, S.callback, null);
+
+    // CSI ? 25 l — hide cursor
+    const seq = "\x1b[?25l";
+    try std.testing.expectEqual(Result.success, write(h, seq.ptr, seq.len));
+    try std.testing.expectEqualStrings(seq, S.raw_capture[0..S.raw_len]);
+
+    // Print a regular character after the escape sequence.
+    // raw_len must be 0 for non-escape actions.
+    S.raw_len = 99;
+    const print_ch = "A";
+    try std.testing.expectEqual(Result.success, write(h, print_ch.ptr, print_ch.len));
+    try std.testing.expectEqual(@as(usize, 0), S.raw_len);
 }
 
 test "cursor visible" {
