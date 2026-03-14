@@ -13,11 +13,12 @@ const log = std.log.scoped(.osc_semantic_prompt);
 /// but it is easier to be "liberal in what we accept" here since
 /// all except one do and the spec does also say to ignore unknown
 /// options. So, I think this is a fair interpretation.
-pub const Command = struct {
+pub const Command = extern struct {
     action: Action,
-    options_unvalidated: []const u8,
+    options_unvalidated_ptr: [*]const u8 = "",
+    options_unvalidated_len: usize = 0,
 
-    pub const Action = enum {
+    pub const Action = enum(c_int) {
         fresh_line, // 'L'
         fresh_line_new_prompt, // 'A'
         new_command, // 'N'
@@ -28,10 +29,26 @@ pub const Command = struct {
         end_command, // 'D'
     };
 
+    pub fn optionsUnvalidated(self: Command) []const u8 {
+        return self.options_unvalidated_ptr[0..self.options_unvalidated_len];
+    }
+
+    pub fn setOptionsUnvalidated(self: *Command, slice: []const u8) void {
+        self.options_unvalidated_ptr = slice.ptr;
+        self.options_unvalidated_len = slice.len;
+    }
+
     pub fn init(action: Action) Command {
         return .{
             .action = action,
-            .options_unvalidated = "",
+        };
+    }
+
+    pub fn initWithOptions(action: Action, options: []const u8) Command {
+        return .{
+            .action = action,
+            .options_unvalidated_ptr = options.ptr,
+            .options_unvalidated_len = options.len,
         };
     }
 
@@ -40,7 +57,7 @@ pub const Command = struct {
         self: Command,
         comptime option: Option,
     ) ?option.Type() {
-        return option.read(self.options_unvalidated);
+        return option.read(self.optionsUnvalidated());
     }
 
     /// Write the decoded command line (if any) to the writer. If an error
@@ -315,35 +332,35 @@ pub fn parse(parser: *Parser, _: ?u8) ?*OSCCommand {
                 parser.command = .{ .semantic_prompt = .init(.fresh_line_new_prompt) };
                 if (data.len == 1) break :fresh_line;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'B' => end_prompt: {
                 parser.command = .{ .semantic_prompt = .init(.end_prompt_start_input) };
                 if (data.len == 1) break :end_prompt;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'I' => end_prompt_line: {
                 parser.command = .{ .semantic_prompt = .init(.end_prompt_start_input_terminate_eol) };
                 if (data.len == 1) break :end_prompt_line;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'C' => end_input: {
                 parser.command = .{ .semantic_prompt = .init(.end_input_start_output) };
                 if (data.len == 1) break :end_input;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'D' => end_command: {
                 parser.command = .{ .semantic_prompt = .init(.end_command) };
                 if (data.len == 1) break :end_command;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'L' => {
@@ -355,14 +372,14 @@ pub fn parse(parser: *Parser, _: ?u8) ?*OSCCommand {
                 parser.command = .{ .semantic_prompt = .init(.new_command) };
                 if (data.len == 1) break :new_command;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             'P' => prompt_start: {
                 parser.command = .{ .semantic_prompt = .init(.prompt_start) };
                 if (data.len == 1) break :prompt_start;
                 if (data[1] != ';') break :valid;
-                parser.command.semantic_prompt.options_unvalidated = data[2..];
+                parser.command.semantic_prompt.setOptionsUnvalidated(data[2..]);
             },
 
             else => break :valid,

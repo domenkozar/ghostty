@@ -1228,10 +1228,7 @@ pub fn semanticPrompt(
             // We don't currently do explicit command tracking in any way
             // so there is no need to terminate prior commands. We just
             // perform the `A` action.
-            try self.semanticPrompt(.{
-                .action = .fresh_line_new_prompt,
-                .options_unvalidated = cmd.options_unvalidated,
-            });
+            try self.semanticPrompt(cmd);
         },
 
         .prompt_start => {
@@ -12015,10 +12012,7 @@ test "Terminal: semantic prompt continuations" {
     // Start input but end it on EOL
     t.carriageReturn();
     try t.linefeed();
-    try t.semanticPrompt(.{
-        .action = .prompt_start,
-        .options_unvalidated = "k=c",
-    });
+    try t.semanticPrompt(.initWithOptions(.prompt_start, "k=c"));
 
     // Write some output
     try testing.expectEqual(@as(usize, 1), t.screens.active.cursor.y);
@@ -12184,10 +12178,7 @@ test "Terminal: OSC133C at x>0 on prompt row does not clear prompt mark" {
     // Move to a new line and mark it as prompt continuation manually
     t.carriageReturn();
     try t.linefeed();
-    try t.semanticPrompt(.{
-        .action = .prompt_start,
-        .options_unvalidated = "k=c",
-    });
+    try t.semanticPrompt(.initWithOptions(.prompt_start, "k=c"));
     for ("> ") |c| try t.print(c);
 
     // Verify the row is marked as prompt continuation
@@ -12266,10 +12257,7 @@ test "Terminal: OSC133A click_events=1 sets click to click_events" {
     try testing.expectEqual(.none, t.screens.active.semantic_prompt.click);
 
     // OSC 133;A with click_events=1
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "click_events=1",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "click_events=1"));
 
     try testing.expectEqual(.click_events, t.screens.active.semantic_prompt.click);
 }
@@ -12280,10 +12268,7 @@ test "Terminal: OSC133A click_events=0 does not set click_events" {
     defer t.deinit(alloc);
 
     // OSC 133;A with click_events=0
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "click_events=0",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "click_events=0"));
 
     // Should remain none since click_events=0 doesn't activate anything
     try testing.expectEqual(.none, t.screens.active.semantic_prompt.click);
@@ -12295,10 +12280,7 @@ test "Terminal: OSC133A cl option sets click to cl value" {
     defer t.deinit(alloc);
 
     // OSC 133;A with cl=m (multiple)
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "cl=m",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "cl=m"));
 
     try testing.expectEqual(Screen.SemanticPrompt.SemanticClick{ .cl = .multiple }, t.screens.active.semantic_prompt.click);
 }
@@ -12308,10 +12290,7 @@ test "Terminal: OSC133A cl=line sets click to line" {
     var t = try init(alloc, .{ .cols = 10, .rows = 5 });
     defer t.deinit(alloc);
 
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "cl=line",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "cl=line"));
 
     try testing.expectEqual(Screen.SemanticPrompt.SemanticClick{ .cl = .line }, t.screens.active.semantic_prompt.click);
 }
@@ -12322,10 +12301,7 @@ test "Terminal: OSC133A click_events=1 takes priority over cl" {
     defer t.deinit(alloc);
 
     // OSC 133;A with both click_events=1 and cl=m
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "click_events=1;cl=m",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "click_events=1;cl=m"));
 
     // click_events should take priority
     try testing.expectEqual(.click_events, t.screens.active.semantic_prompt.click);
@@ -12337,10 +12313,7 @@ test "Terminal: OSC133A click_events=0 falls back to cl" {
     defer t.deinit(alloc);
 
     // OSC 133;A with click_events=0 and cl=v
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "click_events=0;cl=v",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "click_events=0;cl=v"));
 
     // Should fall back to cl since click_events is disabled
     try testing.expectEqual(Screen.SemanticPrompt.SemanticClick{ .cl = .conservative_vertical }, t.screens.active.semantic_prompt.click);
@@ -12352,10 +12325,7 @@ test "Terminal: OSC133A no click options leaves click as none" {
     defer t.deinit(alloc);
 
     // OSC 133;A with no click-related options
-    try t.semanticPrompt(.{
-        .action = .fresh_line_new_prompt,
-        .options_unvalidated = "aid=123",
-    });
+    try t.semanticPrompt(.initWithOptions(.fresh_line_new_prompt, "aid=123"));
 
     try testing.expectEqual(.none, t.screens.active.semantic_prompt.click);
 }
