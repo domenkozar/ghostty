@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <ghostty/vt/result.h>
 #include <ghostty/vt/allocator.h>
+#include <ghostty/vt/action.h>
 
 /**
  * Callback function type for sequence events.
@@ -142,6 +143,17 @@ typedef struct {
 } GhosttyTerminalStyle;
 
 /**
+ * Result of an extended write operation, including row tracking.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+    int32_t result;           /**< GHOSTTY_SUCCESS or error code */
+    size_t total_rows_before; /**< Total rows (scrollback + active) before write */
+    size_t total_rows_after;  /**< Total rows (scrollback + active) after write */
+} GhosttyTerminalWriteResult;
+
+/**
  * Create a new VT terminal instance.
  *
  * @param allocator Pointer to the allocator, or NULL for the default allocator
@@ -156,6 +168,26 @@ GhosttyResult ghostty_terminal_new(
     const GhosttyAllocator *allocator,
     uint16_t cols,
     uint16_t rows,
+    GhosttyTerminal *terminal
+);
+
+/**
+ * Create a new VT terminal instance with a custom scrollback limit.
+ *
+ * @param allocator Pointer to the allocator, or NULL for the default allocator
+ * @param cols Number of columns
+ * @param rows Number of rows
+ * @param max_scrollback Maximum number of scrollback rows
+ * @param terminal Pointer to store the created terminal handle
+ * @return GHOSTTY_SUCCESS on success, or an error code on failure
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_new_ex(
+    const GhosttyAllocator *allocator,
+    uint16_t cols,
+    uint16_t rows,
+    size_t max_scrollback,
     GhosttyTerminal *terminal
 );
 
@@ -191,6 +223,46 @@ GhosttyResult ghostty_terminal_write(
     GhosttyTerminal terminal,
     const uint8_t *data,
     size_t len
+);
+
+/**
+ * Write raw bytes to the terminal with extended result including row tracking.
+ *
+ * Returns total row counts before and after the write, which can be used
+ * to compute how many lines scrolled off the viewport or were
+ * garbage collected from scrollback.
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param data Pointer to the byte data
+ * @param len Number of bytes to write
+ * @return Result struct with error code and row counts
+ *
+ * @ingroup terminal
+ */
+GhosttyTerminalWriteResult ghostty_terminal_write_ex(
+    GhosttyTerminal terminal,
+    const uint8_t *data,
+    size_t len
+);
+
+/**
+ * Serialize the full terminal state as VT escape sequences.
+ *
+ * The resulting string contains all modes, palette, scrolling region,
+ * tabstops, keyboard modes, PWD, and screen content with SGR styling.
+ * Writing this string to a fresh terminal should reproduce the state.
+ *
+ * The returned string must be freed with ghostty_terminal_plain_string_free().
+ *
+ * @param terminal The terminal handle (may be NULL)
+ * @param result Pointer to store the resulting string
+ * @return GHOSTTY_SUCCESS on success, or an error code on failure
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_dump(
+    GhosttyTerminal terminal,
+    GhosttyTerminalString *result
 );
 
 /**

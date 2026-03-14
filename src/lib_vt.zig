@@ -141,9 +141,12 @@ comptime {
         @export(&c.osc_command_data, .{ .name = "ghostty_osc_command_data" });
         @export(&c.paste_is_safe, .{ .name = "ghostty_paste_is_safe" });
         @export(&c.terminal_new, .{ .name = "ghostty_terminal_new" });
+        @export(&c.terminal_new_ex, .{ .name = "ghostty_terminal_new_ex" });
         @export(&c.terminal_free, .{ .name = "ghostty_terminal_free" });
         @export(&c.terminal_full_reset, .{ .name = "ghostty_terminal_full_reset" });
         @export(&c.terminal_write, .{ .name = "ghostty_terminal_write" });
+        @export(&c.terminal_write_ex, .{ .name = "ghostty_terminal_write_ex" });
+        @export(&c.terminal_dump, .{ .name = "ghostty_terminal_dump" });
         @export(&c.terminal_get_size, .{ .name = "ghostty_terminal_get_size" });
         @export(&c.terminal_get_cursor_pos, .{ .name = "ghostty_terminal_get_cursor_pos" });
         @export(&c.terminal_resize, .{ .name = "ghostty_terminal_resize" });

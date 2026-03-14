@@ -11,6 +11,7 @@ const stylepkg = @import("../style.zig");
 const point = @import("../point.zig");
 const PageList = @import("../PageList.zig");
 const modespkg = @import("../modes.zig");
+const formatter = @import("../formatter.zig");
 
 /// Maximum size of a captured raw escape sequence.
 /// Sequences longer than this are truncated in the callback.
@@ -89,6 +90,14 @@ const CallbackHandler = struct {
 
                 if (action == .kitty_keyboard_pop)
                     break :comptime_value @intCast(value);
+
+                // Size report style (XTWINOPS): enum index.
+                if (action == .size_report)
+                    break :comptime_value @intCast(@intFromEnum(value));
+
+                // Modify key format (XTMODIFYOTHERKEYS): enum index.
+                if (action == .modify_key_format)
+                    break :comptime_value @intCast(@intFromEnum(value));
 
                 break :comptime_value 0;
             };
@@ -230,6 +239,95 @@ pub fn plain_string_free(
 }
 
 // ---------------------------------------------------------------------------
+// Extended constructor / write / dump
+// ---------------------------------------------------------------------------
+
+pub fn new_ex(
+    alloc_: ?*const CAllocator,
+    cols: u16,
+    rows: u16,
+    max_scrollback: usize,
+    result: *Handle,
+) callconv(.c) Result {
+    const alloc = lib_alloc.default(alloc_);
+    const wrapper = alloc.create(Wrapper) catch
+        return .out_of_memory;
+    wrapper.terminal = Terminal.init(alloc, .{
+        .cols = cols,
+        .rows = rows,
+        .max_scrollback = max_scrollback,
+    }) catch {
+        alloc.destroy(wrapper);
+        return .out_of_memory;
+    };
+    wrapper.handler = CallbackHandler.init(&wrapper.terminal);
+    wrapper.stream = CallbackStream.initAlloc(alloc, wrapper.handler);
+    wrapper.alloc = alloc;
+    result.* = wrapper;
+    return .success;
+}
+
+/// C: GhosttyTerminalWriteResult
+pub const WriteResult = extern struct {
+    result: Result,
+    total_rows_before: usize,
+    total_rows_after: usize,
+};
+
+pub fn write_ex(
+    handle: Handle,
+    data: [*]const u8,
+    len: usize,
+) callconv(.c) WriteResult {
+    const wrapper = handle orelse return .{
+        .result = .success,
+        .total_rows_before = 0,
+        .total_rows_after = 0,
+    };
+    const rows_before = wrapper.terminal.screens.active.pages.total_rows;
+    wrapper.stream.nextSlice(data[0..len]) catch
+        return .{
+            .result = .out_of_memory,
+            .total_rows_before = rows_before,
+            .total_rows_after = rows_before,
+        };
+    const rows_after = wrapper.terminal.screens.active.pages.total_rows;
+    return .{
+        .result = .success,
+        .total_rows_before = rows_before,
+        .total_rows_after = rows_after,
+    };
+}
+
+pub fn dump(
+    handle: Handle,
+    result: *String,
+) callconv(.c) Result {
+    const wrapper = handle orelse return .success;
+    const tf: formatter.TerminalFormatter = .{
+        .terminal = &wrapper.terminal,
+        .opts = .vt,
+        .content = .{ .selection = null },
+        .extra = .all,
+        .pin_map = null,
+    };
+    var builder: std.Io.Writer.Allocating = .init(wrapper.alloc);
+    tf.format(&builder.writer) catch {
+        builder.deinit();
+        return .out_of_memory;
+    };
+    const slice = builder.toOwnedSlice() catch {
+        builder.deinit();
+        return .out_of_memory;
+    };
+    result.* = .{
+        .ptr = slice.ptr,
+        .len = slice.len,
+    };
+    return .success;
+}
+
+// ---------------------------------------------------------------------------
 // Sequence event callbacks
 // ---------------------------------------------------------------------------
 
@@ -239,8 +337,10 @@ pub fn set_sequence_callback(
     userdata: ?*anyopaque,
 ) callconv(.c) void {
     const wrapper = handle orelse return;
-    wrapper.handler.callback = callback;
-    wrapper.handler.userdata = userdata;
+    // Must set on the stream's handler (which owns the copy used during parsing),
+    // not on wrapper.handler (which is the init-time copy).
+    wrapper.stream.handler.callback = callback;
+    wrapper.stream.handler.userdata = userdata;
 }
 
 // ---------------------------------------------------------------------------
@@ -775,21 +875,90 @@ test "sequence callback value for set_mode" {
     ));
     defer free(h);
 
-    const S = struct {
-        var last_action: c_int = 0;
-        var last_value: i64 = 0;
-        fn callback(action: c_int, value: i64, _: [*]const u8, _: usize, _: ?*anyopaque) callconv(.c) void {
-            last_action = action;
-            last_value = value;
+    const Ctx = struct {
+        target: c_int,
+        found_value: i64 = -1,
+        fn callback(action_tag: c_int, value: i64, _: [*]const u8, _: usize, ud: ?*anyopaque) callconv(.c) void {
+            const self: *@This() = @ptrCast(@alignCast(ud.?));
+            if (action_tag == self.target) self.found_value = value;
         }
     };
+    var ctx = Ctx{ .target = @intFromEnum(Action.Tag.set_mode) };
 
-    set_sequence_callback(h, S.callback, null);
+    set_sequence_callback(h, Ctx.callback, @ptrCast(&ctx));
 
-    // CSI ? 1049 h — set alt screen mode
-    const seq = "\x1b[?1049h";
+    // CSI ? 2004 h -- set bracketed paste (no cascading side effects)
+    const seq = "\x1b[?2004h";
     try std.testing.expectEqual(Result.success, write(h, seq.ptr, seq.len));
-    try std.testing.expectEqual(@as(i64, 1049), S.last_value);
+    try std.testing.expectEqual(@as(i64, 2004), ctx.found_value);
+}
+
+test "sequence callback value for size_report" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    const Ctx = struct {
+        target: c_int,
+        found_value: i64 = -1,
+        fn callback(action_tag: c_int, value: i64, _: [*]const u8, _: usize, ud: ?*anyopaque) callconv(.c) void {
+            const self: *@This() = @ptrCast(@alignCast(ud.?));
+            if (action_tag == self.target) self.found_value = value;
+        }
+    };
+    var ctx = Ctx{ .target = @intFromEnum(Action.Tag.size_report) };
+
+    set_sequence_callback(h, Ctx.callback, @ptrCast(&ctx));
+
+    // CSI 18 t -- text area size query (csi_18_t = enum index 2)
+    const seq18 = "\x1b[18t";
+    try std.testing.expectEqual(Result.success, write(h, seq18.ptr, seq18.len));
+    try std.testing.expectEqual(@as(i64, 2), ctx.found_value);
+
+    // CSI 14 t -- pixel size report (csi_14_t = enum index 0)
+    ctx.found_value = -1;
+    const seq14 = "\x1b[14t";
+    try std.testing.expectEqual(Result.success, write(h, seq14.ptr, seq14.len));
+    try std.testing.expectEqual(@as(i64, 0), ctx.found_value);
+}
+
+test "sequence callback value for modify_key_format" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    const Ctx = struct {
+        target: c_int,
+        found_value: i64 = -1,
+        fn callback(action_tag: c_int, value: i64, _: [*]const u8, _: usize, ud: ?*anyopaque) callconv(.c) void {
+            const self: *@This() = @ptrCast(@alignCast(ud.?));
+            if (action_tag == self.target) self.found_value = value;
+        }
+    };
+    var ctx = Ctx{ .target = @intFromEnum(Action.Tag.modify_key_format) };
+
+    set_sequence_callback(h, Ctx.callback, @ptrCast(&ctx));
+
+    // CSI > m -- reset to legacy (enum index 0)
+    const reset = "\x1b[>m";
+    try std.testing.expectEqual(Result.success, write(h, reset.ptr, reset.len));
+    try std.testing.expectEqual(@as(i64, 0), ctx.found_value);
+
+    // CSI > 4 m -- other_keys_none (enum index 3)
+    ctx.found_value = -1;
+    const set4 = "\x1b[>4m";
+    try std.testing.expectEqual(Result.success, write(h, set4.ptr, set4.len));
+    try std.testing.expectEqual(@as(i64, 3), ctx.found_value);
 }
 
 test "sequence callback raw bytes" {
@@ -808,8 +977,8 @@ test "sequence callback raw bytes" {
         fn callback(_: c_int, _: i64, raw: [*]const u8, len: usize, _: ?*anyopaque) callconv(.c) void {
             if (len > 0 and len <= 64) {
                 @memcpy(raw_capture[0..len], raw[0..len]);
-                raw_len = len;
             }
+            raw_len = len;
         }
     };
 
@@ -930,4 +1099,73 @@ test "state query null safety" {
     try std.testing.expect(!is_mode_set(null, 2004));
     try std.testing.expect(!is_alt_screen(null));
     try std.testing.expectEqual(@as(u32, 0), kitty_keyboard_depth(null));
+}
+
+test "new_ex with scrollback" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new_ex(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        500,
+        &h,
+    ));
+    defer free(h);
+
+    const text = "Hello";
+    try std.testing.expectEqual(Result.success, write(h, text.ptr, text.len));
+}
+
+test "write_ex row tracking" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        10,
+        3,
+        &h,
+    ));
+    defer free(h);
+
+    // Write enough lines to push content into scrollback.
+    const text = "line1\r\nline2\r\nline3\r\nline4\r\nline5\r\n";
+    const res = write_ex(h, text.ptr, text.len);
+    try std.testing.expectEqual(Result.success, res.result);
+    // After writing 5 lines into a 3-row terminal, total_rows should have grown.
+    try std.testing.expect(res.total_rows_after >= res.total_rows_before);
+}
+
+test "write_ex null safety" {
+    const res = write_ex(null, "x".ptr, 1);
+    try std.testing.expectEqual(Result.success, res.result);
+    try std.testing.expectEqual(@as(usize, 0), res.total_rows_before);
+    try std.testing.expectEqual(@as(usize, 0), res.total_rows_after);
+}
+
+test "dump" {
+    var h: Handle = undefined;
+    try std.testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        80,
+        24,
+        &h,
+    ));
+    defer free(h);
+
+    // Write styled text.
+    const text = "\x1b[1;31mHello\x1b[0m";
+    try std.testing.expectEqual(Result.success, write(h, text.ptr, text.len));
+
+    var str: String = undefined;
+    try std.testing.expectEqual(Result.success, dump(h, &str));
+    defer plain_string_free(h, str);
+
+    const slice = (str.ptr orelse unreachable)[0..str.len];
+    // The dump should contain the text and SGR sequences.
+    try std.testing.expect(slice.len > 0);
+    try std.testing.expect(std.mem.indexOf(u8, slice, "Hello") != null);
+}
+
+test "dump null safety" {
+    var str: String = undefined;
+    try std.testing.expectEqual(Result.success, dump(null, &str));
 }
