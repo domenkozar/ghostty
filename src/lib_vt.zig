@@ -139,6 +139,9 @@ comptime {
         @export(&c.osc_end, .{ .name = "ghostty_osc_end" });
         @export(&c.osc_command_type, .{ .name = "ghostty_osc_command_type" });
         @export(&c.osc_command_data, .{ .name = "ghostty_osc_command_data" });
+        @export(&c.host_enable_raw_mode, .{ .name = "ghostty_host_enable_raw_mode" });
+        @export(&c.host_disable_raw_mode, .{ .name = "ghostty_host_disable_raw_mode" });
+        @export(&c.host_get_size, .{ .name = "ghostty_host_get_size" });
         @export(&c.paste_is_safe, .{ .name = "ghostty_paste_is_safe" });
         @export(&c.terminal_new, .{ .name = "ghostty_terminal_new" });
         @export(&c.terminal_new_ex, .{ .name = "ghostty_terminal_new_ex" });

@@ -80,6 +80,7 @@ extern "C" {
 #include <ghostty/vt/sgr.h>
 #include <ghostty/vt/key.h>
 #include <ghostty/vt/paste.h>
+#include <ghostty/vt/host.h>
 #include <ghostty/vt/wasm.h>
 
 #ifdef __cplusplus

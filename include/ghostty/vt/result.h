@@ -17,6 +17,8 @@ typedef enum {
     GHOSTTY_OUT_OF_MEMORY = -1,
     /** Operation failed due to invalid value */
     GHOSTTY_INVALID_VALUE = -2,
+    /** Operation failed due to an I/O error */
+    GHOSTTY_IO_ERROR = -3,
 } GhosttyResult;
 
 #endif /* GHOSTTY_VT_RESULT_H */

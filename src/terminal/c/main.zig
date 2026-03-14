@@ -1,4 +1,5 @@
 pub const color = @import("color.zig");
+pub const host = @import("host.zig");
 pub const osc = @import("osc.zig");
 pub const parser = @import("parser.zig");
 pub const terminal = @import("terminal.zig");
@@ -6,6 +7,10 @@ pub const key_event = @import("key_event.zig");
 pub const key_encode = @import("key_encode.zig");
 pub const paste = @import("paste.zig");
 pub const sgr = @import("sgr.zig");
+
+pub const host_enable_raw_mode = host.enable_raw_mode;
+pub const host_disable_raw_mode = host.disable_raw_mode;
+pub const host_get_size = host.get_size;
 
 // The full C API, unexported.
 pub const osc_new = osc.new;
@@ -88,6 +93,7 @@ pub const terminal_kitty_keyboard_depth = terminal.kitty_keyboard_depth;
 
 test {
     _ = color;
+    _ = host;
     _ = osc;
     _ = parser;
     _ = terminal;
