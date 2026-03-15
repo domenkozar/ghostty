@@ -19,6 +19,7 @@ pub const row = @import("row.zig");
 pub const sgr = @import("sgr.zig");
 pub const size_report = @import("size_report.zig");
 pub const style = @import("style.zig");
+pub const host = @import("host.zig");
 pub const parser = @import("parser.zig");
 pub const terminal = @import("terminal.zig");
 
@@ -160,6 +161,10 @@ pub const parser_csi = parser.csi;
 pub const parser_esc = parser.esc;
 pub const parser_dcs = parser.dcs;
 
+pub const host_enable_raw_mode = host.enable_raw_mode;
+pub const host_disable_raw_mode = host.disable_raw_mode;
+pub const host_get_size = host.get_size;
+
 test {
     _ = allocator;
     _ = buildpkg;
@@ -180,6 +185,7 @@ test {
     _ = sgr;
     _ = size_report;
     _ = style;
+    _ = host;
     _ = parser;
     _ = terminal;
 
