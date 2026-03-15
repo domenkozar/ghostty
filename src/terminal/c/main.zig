@@ -19,6 +19,7 @@ pub const row = @import("row.zig");
 pub const sgr = @import("sgr.zig");
 pub const size_report = @import("size_report.zig");
 pub const style = @import("style.zig");
+pub const parser = @import("parser.zig");
 pub const terminal = @import("terminal.zig");
 
 // The full C API, unexported.
@@ -147,6 +148,14 @@ pub const grid_ref_style = grid_ref.grid_ref_style;
 pub const terminal_total_rows = terminal.total_rows;
 pub const terminal_scrollback_rows = terminal.scrollback_rows; 33ab52096 (vt: add scrollback and row count query C bindings)
 
+pub const parser_new = parser.new;
+pub const parser_free = parser.free;
+pub const parser_reset = parser.reset;
+pub const parser_next = parser.next;
+pub const parser_csi = parser.csi;
+pub const parser_esc = parser.esc;
+pub const parser_dcs = parser.dcs;
+
 test {
     _ = allocator;
     _ = buildpkg;
@@ -167,6 +176,7 @@ test {
     _ = sgr;
     _ = size_report;
     _ = style;
+    _ = parser;
     _ = terminal;
 
     // We want to make sure we run the tests for the C allocator interface.

@@ -220,7 +220,14 @@ comptime {
         @export(&c.alloc_alloc, .{ .name = "ghostty_alloc" });
         @export(&c.alloc_free, .{ .name = "ghostty_free" });
         @export(&c.terminal_total_rows, .{ .name = "ghostty_terminal_total_rows" });
-        @export(&c.terminal_scrollback_rows, .{ .name = "ghostty_terminal_scrollback_rows" }); 33ab52096 (vt: add scrollback and row count query C bindings)
+        @export(&c.terminal_scrollback_rows, .{ .name = "ghostty_terminal_scrollback_rows" });
+        @export(&c.parser_new, .{ .name = "ghostty_parser_new" });
+        @export(&c.parser_free, .{ .name = "ghostty_parser_free" });
+        @export(&c.parser_reset, .{ .name = "ghostty_parser_reset" });
+        @export(&c.parser_next, .{ .name = "ghostty_parser_next" });
+        @export(&c.parser_csi, .{ .name = "ghostty_parser_csi" });
+        @export(&c.parser_esc, .{ .name = "ghostty_parser_esc" });
+        @export(&c.parser_dcs, .{ .name = "ghostty_parser_dcs" });
 
         // On Wasm we need to export our allocator convenience functions.
         if (builtin.target.cpu.arch.isWasm()) {
