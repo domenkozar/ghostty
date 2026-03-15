@@ -152,6 +152,7 @@ pub const terminal_plain_string = terminal.plain_string;
 pub const terminal_plain_string_free = terminal.plain_string_free;
 pub const terminal_dump = terminal.dump;
 pub const terminal_dump_free = terminal.dump_free;
+pub const terminal_vt_write_ex = terminal.vt_write_ex;
 
 pub const parser_new = parser.new;
 pub const parser_free = parser.free;

@@ -317,6 +317,35 @@ void ghostty_terminal_vt_write(GhosttyTerminal terminal,
                                 size_t len);
 
 /**
+ * Result of an extended write operation with row tracking.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+  GhosttyResult result;
+  size_t total_rows_before;
+  size_t total_rows_after;
+} GhosttyTerminalWriteResult;
+
+/**
+ * Write VT-encoded data with row tracking.
+ *
+ * Like ghostty_terminal_vt_write but also returns the total row count
+ * before and after the write, which is useful for detecting scrollback
+ * growth.
+ *
+ * @param terminal The terminal handle (NULL returns invalid_value result)
+ * @param data Pointer to the data to write
+ * @param len Length of the data in bytes
+ * @return Write result with row counts
+ *
+ * @ingroup terminal
+ */
+GhosttyTerminalWriteResult ghostty_terminal_vt_write_ex(GhosttyTerminal terminal,
+                                                        const uint8_t* data,
+                                                        size_t len);
+
+/**
  * Scroll the terminal viewport.
  *
  * Scrolls the terminal's viewport according to the given behavior.

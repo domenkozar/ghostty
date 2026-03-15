@@ -225,6 +225,7 @@ comptime {
         @export(&c.terminal_plain_string_free, .{ .name = "ghostty_terminal_plain_string_free" });
         @export(&c.terminal_dump, .{ .name = "ghostty_terminal_dump" });
         @export(&c.terminal_dump_free, .{ .name = "ghostty_terminal_dump_free" });
+        @export(&c.terminal_vt_write_ex, .{ .name = "ghostty_terminal_vt_write_ex" });
         @export(&c.host_enable_raw_mode, .{ .name = "ghostty_host_enable_raw_mode" });
         @export(&c.host_disable_raw_mode, .{ .name = "ghostty_host_disable_raw_mode" });
         @export(&c.host_get_size, .{ .name = "ghostty_host_get_size" });

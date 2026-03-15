@@ -673,6 +673,52 @@ test "dump null" {
     try testing.expectEqual(Result.invalid_value, dump(null, &str));
 }
 
+/// C: GhosttyTerminalWriteResult
+pub const WriteResult = extern struct {
+    result: Result,
+    total_rows_before: usize,
+    total_rows_after: usize,
+};
+
+pub fn vt_write_ex(
+    terminal_: Terminal,
+    ptr: [*]const u8,
+    len: usize,
+) callconv(.c) WriteResult {
+    const wrapper = terminal_ orelse return .{
+        .result = .invalid_value,
+        .total_rows_before = 0,
+        .total_rows_after = 0,
+    };
+    const rows_before = wrapper.terminal.screens.active.pages.total_rows;
+    wrapper.stream.nextSlice(ptr[0..len]);
+    const rows_after = wrapper.terminal.screens.active.pages.total_rows;
+    return .{
+        .result = .success,
+        .total_rows_before = rows_before,
+        .total_rows_after = rows_after,
+    };
+}
+
+test "vt_write_ex" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 2, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    const wr = vt_write_ex(t, "Hello\r\nWorld\r\nThird", 19);
+    try testing.expectEqual(Result.success, wr.result);
+    try testing.expect(wr.total_rows_after >= wr.total_rows_before);
+}
+
+test "vt_write_ex null" {
+    const wr = vt_write_ex(null, "x", 1);
+    try testing.expectEqual(Result.invalid_value, wr.result);
+}
+
 test "vt_write" {
     var t: Terminal = null;
     try testing.expectEqual(Result.success, new(
