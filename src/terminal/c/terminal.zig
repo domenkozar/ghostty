@@ -8,6 +8,9 @@ const ScreenSet = @import("../ScreenSet.zig");
 const PageList = @import("../PageList.zig");
 const kitty = @import("../kitty/key.zig");
 const modes = @import("../modes.zig");
+const ReadonlyHandler = @import("../stream_terminal.zig").Handler;
+const streampkg = @import("../stream.zig");
+const StreamAction = streampkg.Action;
 const point = @import("../point.zig");
 const size = @import("../size.zig");
 const cell_c = @import("cell.zig");
@@ -717,6 +720,115 @@ test "vt_write_ex" {
 test "vt_write_ex null" {
     const wr = vt_write_ex(null, "x", 1);
     try testing.expectEqual(Result.invalid_value, wr.result);
+}
+
+/// C: GhosttySequenceCallback
+pub const SequenceCallback = *const fn (c_int, i64, ?*anyopaque) callconv(.c) void;
+
+/// Stream handler that wraps ReadonlyHandler and fires a C callback.
+const CallbackHandler = struct {
+    inner: ReadonlyHandler,
+    callback: ?SequenceCallback = null,
+    userdata: ?*anyopaque = null,
+
+    pub fn init(terminal: *ZigTerminal) CallbackHandler {
+        return .{ .inner = ReadonlyHandler.init(terminal) };
+    }
+
+    pub fn deinit(self: *CallbackHandler) void {
+        self.inner.deinit();
+    }
+
+    pub fn vt(
+        self: *CallbackHandler,
+        comptime action: StreamAction.Tag,
+        value: StreamAction.Value(action),
+    ) void {
+        self.inner.vt(action, value);
+        if (self.callback) |cb| {
+            cb(@intFromEnum(action), 0, self.userdata);
+        }
+    }
+};
+
+const CallbackStream = streampkg.Stream(CallbackHandler);
+
+/// Wrapper that holds the terminal, callback handler, stream, and allocator.
+const CallbackWrapper = struct {
+    terminal: *ZigTerminal,
+    handler: CallbackHandler,
+    stream: CallbackStream,
+    alloc: std.mem.Allocator,
+};
+
+/// Opaque handle for a callback-enabled write session.
+/// C: GhosttyTerminalCallbackWriter
+pub const CallbackWriter = ?*CallbackWrapper;
+
+pub fn callback_writer_new(
+    terminal_: Terminal,
+    result: *CallbackWriter,
+    callback: SequenceCallback,
+    userdata: ?*anyopaque,
+) callconv(.c) Result {
+    const t: *ZigTerminal = (terminal_ orelse return .invalid_value).terminal;
+    const alloc = t.gpa();
+    const wrapper = alloc.create(CallbackWrapper) catch
+        return .out_of_memory;
+    wrapper.terminal = t;
+    wrapper.handler = CallbackHandler.init(t);
+    wrapper.handler.callback = callback;
+    wrapper.handler.userdata = userdata;
+    wrapper.stream = CallbackStream.initAlloc(alloc, wrapper.handler);
+    wrapper.alloc = alloc;
+    result.* = wrapper;
+    return .success;
+}
+
+pub fn callback_writer_free(writer_: CallbackWriter) callconv(.c) void {
+    const wrapper = writer_ orelse return;
+    wrapper.stream.deinit();
+    wrapper.alloc.destroy(wrapper);
+}
+
+pub fn callback_writer_write(
+    writer_: CallbackWriter,
+    ptr: [*]const u8,
+    len: usize,
+) callconv(.c) void {
+    const wrapper = writer_ orelse return;
+    wrapper.stream.nextSlice(ptr[0..len]);
+}
+
+test "callback_writer" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 24, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    const S = struct {
+        var call_count: i32 = 0;
+        fn cb(_: c_int, _: i64, _: ?*anyopaque) callconv(.c) void {
+            call_count += 1;
+        }
+    };
+    S.call_count = 0;
+
+    var writer: CallbackWriter = null;
+    try testing.expectEqual(Result.success, callback_writer_new(t, &writer, &S.cb, null));
+    defer callback_writer_free(writer);
+
+    // Write text that triggers VT actions
+    callback_writer_write(writer, "A", 1);
+    try testing.expect(S.call_count > 0);
+}
+
+test "callback_writer null" {
+    callback_writer_write(null, "x", 1);
+    callback_writer_free(null);
 }
 
 test "vt_write" {

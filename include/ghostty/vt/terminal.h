@@ -346,6 +346,68 @@ GhosttyTerminalWriteResult ghostty_terminal_vt_write_ex(GhosttyTerminal terminal
                                                         size_t len);
 
 /**
+ * Callback invoked after each VT sequence is processed.
+ *
+ * @param action The action tag (enum index from the stream action union)
+ * @param value Reserved, currently always 0
+ * @param userdata User-provided context pointer
+ *
+ * @ingroup terminal
+ */
+typedef void (*GhosttySequenceCallback)(int action, int64_t value, void* userdata);
+
+/**
+ * Opaque handle to a callback writer.
+ *
+ * @ingroup terminal
+ */
+typedef struct GhosttyTerminalCallbackWriter* GhosttyTerminalCallbackWriter;
+
+/**
+ * Create a callback writer for a terminal.
+ *
+ * A callback writer wraps VT processing with a callback that fires after
+ * each processed sequence. Use ghostty_terminal_callback_writer_write()
+ * to write data through it.
+ *
+ * @param terminal The terminal handle
+ * @param writer Pointer to store the created writer handle
+ * @param callback The callback function
+ * @param userdata User context pointer passed to callback
+ * @return GHOSTTY_SUCCESS on success, or an error code
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_callback_writer_new(
+    GhosttyTerminal terminal,
+    GhosttyTerminalCallbackWriter* writer,
+    GhosttySequenceCallback callback,
+    void* userdata);
+
+/**
+ * Free a callback writer.
+ *
+ * @param writer The writer handle (may be NULL)
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_callback_writer_free(GhosttyTerminalCallbackWriter writer);
+
+/**
+ * Write VT data through a callback writer.
+ *
+ * @param writer The writer handle (may be NULL, in which case this is a no-op)
+ * @param data Pointer to the data to write
+ * @param len Length of the data in bytes
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_callback_writer_write(
+    GhosttyTerminalCallbackWriter writer,
+    const uint8_t* data,
+    size_t len);
+
+/**
  * Scroll the terminal viewport.
  *
  * Scrolls the terminal's viewport according to the given behavior.

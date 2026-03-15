@@ -226,6 +226,9 @@ comptime {
         @export(&c.terminal_dump, .{ .name = "ghostty_terminal_dump" });
         @export(&c.terminal_dump_free, .{ .name = "ghostty_terminal_dump_free" });
         @export(&c.terminal_vt_write_ex, .{ .name = "ghostty_terminal_vt_write_ex" });
+        @export(&c.terminal_callback_writer_new, .{ .name = "ghostty_terminal_callback_writer_new" });
+        @export(&c.terminal_callback_writer_free, .{ .name = "ghostty_terminal_callback_writer_free" });
+        @export(&c.terminal_callback_writer_write, .{ .name = "ghostty_terminal_callback_writer_write" });
         @export(&c.host_enable_raw_mode, .{ .name = "ghostty_host_enable_raw_mode" });
         @export(&c.host_disable_raw_mode, .{ .name = "ghostty_host_disable_raw_mode" });
         @export(&c.host_get_size, .{ .name = "ghostty_host_get_size" });

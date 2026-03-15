@@ -153,6 +153,9 @@ pub const terminal_plain_string_free = terminal.plain_string_free;
 pub const terminal_dump = terminal.dump;
 pub const terminal_dump_free = terminal.dump_free;
 pub const terminal_vt_write_ex = terminal.vt_write_ex;
+pub const terminal_callback_writer_new = terminal.callback_writer_new;
+pub const terminal_callback_writer_free = terminal.callback_writer_free;
+pub const terminal_callback_writer_write = terminal.callback_writer_write;
 
 pub const parser_new = parser.new;
 pub const parser_free = parser.free;
