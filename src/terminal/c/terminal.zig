@@ -14,6 +14,7 @@ const cell_c = @import("cell.zig");
 const row_c = @import("row.zig");
 const grid_ref_c = @import("grid_ref.zig");
 const style_c = @import("style.zig");
+const formatter = @import("../formatter.zig");
 const Result = @import("result.zig").Result;
 
 const log = std.log.scoped(.terminal_c);
@@ -558,7 +559,120 @@ test "scrollback_rows" {
 test "scrollback_rows null" {
     try testing.expectEqual(@as(usize, 0), scrollback_rows(null));
 }
- 33ab52096 (vt: add scrollback and row count query C bindings)
+
+/// C: GhosttyTerminalString
+pub const String = extern struct {
+    ptr: ?[*]const u8,
+    len: usize,
+};
+
+pub fn plain_string(
+    terminal_: Terminal,
+    result: *String,
+) callconv(.c) Result {
+    const t: *ZigTerminal = (terminal_ orelse return .invalid_value).terminal;
+    const str = t.plainString(t.gpa()) catch
+        return .out_of_memory;
+    result.* = .{
+        .ptr = str.ptr,
+        .len = str.len,
+    };
+    return .success;
+}
+
+pub fn plain_string_free(
+    terminal_: Terminal,
+    str: String,
+) callconv(.c) void {
+    const t: *ZigTerminal = (terminal_ orelse return).terminal;
+    const ptr = str.ptr orelse return;
+    t.gpa().free(ptr[0..str.len]);
+}
+
+pub fn dump(
+    terminal_: Terminal,
+    result: *String,
+) callconv(.c) Result {
+    const t: *ZigTerminal = (terminal_ orelse return .invalid_value).terminal;
+    const alloc = t.gpa();
+    const tf: formatter.TerminalFormatter = .{
+        .terminal = t,
+        .opts = .vt,
+        .content = .{ .selection = null },
+        .extra = .all,
+        .pin_map = null,
+    };
+    var builder: std.Io.Writer.Allocating = .init(alloc);
+    tf.format(&builder.writer) catch {
+        builder.deinit();
+        return .out_of_memory;
+    };
+    const slice = builder.toOwnedSlice() catch {
+        builder.deinit();
+        return .out_of_memory;
+    };
+    result.* = .{
+        .ptr = slice.ptr,
+        .len = slice.len,
+    };
+    return .success;
+}
+
+pub fn dump_free(
+    terminal_: Terminal,
+    str: String,
+) callconv(.c) void {
+    plain_string_free(terminal_, str);
+}
+
+test "plain_string" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 24, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    vt_write(t, "Hello", 5);
+
+    var str: String = undefined;
+    try testing.expectEqual(Result.success, plain_string(t, &str));
+    defer plain_string_free(t, str);
+
+    const slice = (str.ptr orelse unreachable)[0..str.len];
+    // Should contain "Hello" somewhere
+    try testing.expect(std.mem.indexOf(u8, slice, "Hello") != null);
+}
+
+test "plain_string null" {
+    var str: String = undefined;
+    try testing.expectEqual(Result.invalid_value, plain_string(null, &str));
+}
+
+test "dump" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 24, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    vt_write(t, "Hello", 5);
+
+    var str: String = undefined;
+    try testing.expectEqual(Result.success, dump(t, &str));
+    defer dump_free(t, str);
+
+    try testing.expect(str.len > 0);
+}
+
+test "dump null" {
+    var str: String = undefined;
+    try testing.expectEqual(Result.invalid_value, dump(null, &str));
+}
+
 test "vt_write" {
     var t: Terminal = null;
     try testing.expectEqual(Result.success, new(

@@ -221,6 +221,10 @@ comptime {
         @export(&c.alloc_free, .{ .name = "ghostty_free" });
         @export(&c.terminal_total_rows, .{ .name = "ghostty_terminal_total_rows" });
         @export(&c.terminal_scrollback_rows, .{ .name = "ghostty_terminal_scrollback_rows" });
+        @export(&c.terminal_plain_string, .{ .name = "ghostty_terminal_plain_string" });
+        @export(&c.terminal_plain_string_free, .{ .name = "ghostty_terminal_plain_string_free" });
+        @export(&c.terminal_dump, .{ .name = "ghostty_terminal_dump" });
+        @export(&c.terminal_dump_free, .{ .name = "ghostty_terminal_dump_free" });
         @export(&c.parser_new, .{ .name = "ghostty_parser_new" });
         @export(&c.parser_free, .{ .name = "ghostty_parser_free" });
         @export(&c.parser_reset, .{ .name = "ghostty_parser_reset" });

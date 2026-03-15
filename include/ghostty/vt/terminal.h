@@ -441,6 +441,66 @@ size_t ghostty_terminal_total_rows(GhosttyTerminal terminal);
  */
 size_t ghostty_terminal_scrollback_rows(GhosttyTerminal terminal);
 
+/**
+ * A heap-allocated string returned by plain_string or dump.
+ *
+ * @ingroup terminal
+ */
+typedef struct {
+  const uint8_t *ptr;
+  size_t len;
+} GhosttyTerminalString;
+
+/**
+ * Get the plain text content of the terminal viewport.
+ *
+ * The returned string must be freed with ghostty_terminal_plain_string_free().
+ *
+ * @param terminal The terminal handle (may be NULL, returns GHOSTTY_INVALID_VALUE)
+ * @param result Pointer to store the string
+ * @return GHOSTTY_SUCCESS on success, or an error code
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_plain_string(GhosttyTerminal terminal,
+                                            GhosttyTerminalString* result);
+
+/**
+ * Free a string returned by ghostty_terminal_plain_string().
+ *
+ * @param terminal The terminal handle that produced the string
+ * @param str The string to free
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_plain_string_free(GhosttyTerminal terminal,
+                                        GhosttyTerminalString str);
+
+/**
+ * Serialize the full terminal state as VT escape sequences.
+ *
+ * The returned string must be freed with ghostty_terminal_dump_free().
+ *
+ * @param terminal The terminal handle (may be NULL, returns GHOSTTY_INVALID_VALUE)
+ * @param result Pointer to store the string
+ * @return GHOSTTY_SUCCESS on success, or an error code
+ *
+ * @ingroup terminal
+ */
+GhosttyResult ghostty_terminal_dump(GhosttyTerminal terminal,
+                                    GhosttyTerminalString* result);
+
+/**
+ * Free a string returned by ghostty_terminal_dump().
+ *
+ * @param terminal The terminal handle that produced the string
+ * @param str The string to free
+ *
+ * @ingroup terminal
+ */
+void ghostty_terminal_dump_free(GhosttyTerminal terminal,
+                                GhosttyTerminalString str);
+
 /** @} */
 
 #ifdef __cplusplus

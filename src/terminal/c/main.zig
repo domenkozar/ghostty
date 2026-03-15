@@ -146,7 +146,11 @@ pub const grid_ref_row = grid_ref.grid_ref_row;
 pub const grid_ref_graphemes = grid_ref.grid_ref_graphemes;
 pub const grid_ref_style = grid_ref.grid_ref_style;
 pub const terminal_total_rows = terminal.total_rows;
-pub const terminal_scrollback_rows = terminal.scrollback_rows; 33ab52096 (vt: add scrollback and row count query C bindings)
+pub const terminal_scrollback_rows = terminal.scrollback_rows;
+pub const terminal_plain_string = terminal.plain_string;
+pub const terminal_plain_string_free = terminal.plain_string_free;
+pub const terminal_dump = terminal.dump;
+pub const terminal_dump_free = terminal.dump_free;
 
 pub const parser_new = parser.new;
 pub const parser_free = parser.free;
