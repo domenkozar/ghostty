@@ -417,6 +417,30 @@ GhosttyResult ghostty_terminal_grid_ref(GhosttyTerminal terminal,
                                         GhosttyPoint point,
                                         GhosttyGridRef *out_ref);
 
+/**
+ * Get the total number of rows including scrollback.
+ *
+ * This traverses all pages and can be slow. Use sparingly.
+ *
+ * @param terminal The terminal handle (may be NULL, returns 0)
+ * @return The total number of rows
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_total_rows(GhosttyTerminal terminal);
+
+/**
+ * Get the number of scrollback rows (total rows minus viewport rows).
+ *
+ * This traverses all pages and can be slow. Use sparingly.
+ *
+ * @param terminal The terminal handle (may be NULL, returns 0)
+ * @return The number of scrollback rows
+ *
+ * @ingroup terminal
+ */
+size_t ghostty_terminal_scrollback_rows(GhosttyTerminal terminal);
+
 /** @} */
 
 #ifdef __cplusplus

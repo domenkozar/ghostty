@@ -219,6 +219,8 @@ comptime {
         @export(&c.build_info, .{ .name = "ghostty_build_info" });
         @export(&c.alloc_alloc, .{ .name = "ghostty_alloc" });
         @export(&c.alloc_free, .{ .name = "ghostty_free" });
+        @export(&c.terminal_total_rows, .{ .name = "ghostty_terminal_total_rows" });
+        @export(&c.terminal_scrollback_rows, .{ .name = "ghostty_terminal_scrollback_rows" }); 33ab52096 (vt: add scrollback and row count query C bindings)
 
         // On Wasm we need to export our allocator convenience functions.
         if (builtin.target.cpu.arch.isWasm()) {

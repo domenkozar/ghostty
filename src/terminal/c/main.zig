@@ -144,6 +144,8 @@ pub const grid_ref_cell = grid_ref.grid_ref_cell;
 pub const grid_ref_row = grid_ref.grid_ref_row;
 pub const grid_ref_graphemes = grid_ref.grid_ref_graphemes;
 pub const grid_ref_style = grid_ref.grid_ref_style;
+pub const terminal_total_rows = terminal.total_rows;
+pub const terminal_scrollback_rows = terminal.scrollback_rows; 33ab52096 (vt: add scrollback and row count query C bindings)
 
 test {
     _ = allocator;

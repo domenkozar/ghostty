@@ -515,6 +515,50 @@ test "mode_set unknown mode" {
     try testing.expectEqual(Result.invalid_value, mode_set(t, unknown, true));
 }
 
+pub fn total_rows(terminal_: Terminal) callconv(.c) usize {
+    const t: *ZigTerminal = (terminal_ orelse return 0).terminal;
+    return t.screens.active.pages.total_rows;
+}
+
+pub fn scrollback_rows(terminal_: Terminal) callconv(.c) usize {
+    const t: *ZigTerminal = (terminal_ orelse return 0).terminal;
+    return t.screens.active.pages.total_rows - t.rows;
+}
+
+test "total_rows" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 24, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    // A fresh terminal should have at least as many rows as the viewport
+    try testing.expect(total_rows(t) >= 24);
+}
+
+test "total_rows null" {
+    try testing.expectEqual(@as(usize, 0), total_rows(null));
+}
+
+test "scrollback_rows" {
+    var t: Terminal = null;
+    try testing.expectEqual(Result.success, new(
+        &lib_alloc.test_allocator,
+        &t,
+        .{ .cols = 80, .rows = 24, .max_scrollback = 10_000 },
+    ));
+    defer free(t);
+
+    // A fresh terminal should have 0 scrollback rows
+    try testing.expectEqual(@as(usize, 0), scrollback_rows(t));
+}
+
+test "scrollback_rows null" {
+    try testing.expectEqual(@as(usize, 0), scrollback_rows(null));
+}
+ 33ab52096 (vt: add scrollback and row count query C bindings)
 test "vt_write" {
     var t: Terminal = null;
     try testing.expectEqual(Result.success, new(
