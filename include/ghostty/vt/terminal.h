@@ -1425,6 +1425,26 @@ GHOSTTY_API GhosttyResult ghostty_terminal_mode_get(GhosttyTerminal terminal,
                                         bool* out_value);
 
 /**
+ * Get the default value of a terminal mode.
+ *
+ * Returns the value restored for the mode by a full terminal reset (RIS).
+ * This may differ from the mode's current value.
+ *
+ * @param terminal The terminal handle (NULL returns GHOSTTY_INVALID_VALUE)
+ * @param mode The mode identifying the default to query
+ * @param[out] out_value On success, set to true if the default is set, false
+ *             if it is reset
+ * @return GHOSTTY_SUCCESS on success, GHOSTTY_INVALID_VALUE if the terminal
+ *         is NULL or the mode does not correspond to a known mode
+ *
+ * @ingroup terminal
+ */
+GHOSTTY_API GhosttyResult ghostty_terminal_mode_get_default(
+    GhosttyTerminal terminal,
+    GhosttyMode mode,
+    bool* out_value);
+
+/**
  * Set the value of a terminal mode.
  *
  * Sets the mode identified by the given mode to the specified value.
@@ -1440,6 +1460,26 @@ GHOSTTY_API GhosttyResult ghostty_terminal_mode_get(GhosttyTerminal terminal,
 GHOSTTY_API GhosttyResult ghostty_terminal_mode_set(GhosttyTerminal terminal,
                                          GhosttyMode mode,
                                          bool value);
+
+/**
+ * Set the default value of a terminal mode.
+ *
+ * Sets the value restored for the mode by a full terminal reset (RIS).
+ * This does not change the mode's current value; call
+ * ghostty_terminal_mode_set() separately to apply the value immediately.
+ *
+ * @param terminal The terminal handle (NULL returns GHOSTTY_INVALID_VALUE)
+ * @param mode The mode identifying the default to set
+ * @param value true to set the default, false to reset it
+ * @return GHOSTTY_SUCCESS on success, GHOSTTY_INVALID_VALUE if the terminal
+ *         is NULL or the mode does not correspond to a known mode
+ *
+ * @ingroup terminal
+ */
+GHOSTTY_API GhosttyResult ghostty_terminal_mode_set_default(
+    GhosttyTerminal terminal,
+    GhosttyMode mode,
+    bool value);
 
 /**
  * Get data from a terminal instance.

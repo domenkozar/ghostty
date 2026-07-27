@@ -719,6 +719,18 @@ pub fn mode_get(
     return .success;
 }
 
+pub fn mode_get_default(
+    terminal_: Terminal,
+    tag: modes.ModeTag.Backing,
+    out_value: *bool,
+) callconv(lib.calling_conv) Result {
+    const t: *ZigTerminal = (terminal_ orelse return .invalid_value).terminal;
+    const mode_tag: modes.ModeTag = @bitCast(tag);
+    const mode = modes.modeFromInt(mode_tag.value, mode_tag.ansi) orelse return .invalid_value;
+    out_value.* = t.modes.getDefault(mode);
+    return .success;
+}
+
 pub fn mode_set(
     terminal_: Terminal,
     tag: modes.ModeTag.Backing,
@@ -728,6 +740,18 @@ pub fn mode_set(
     const mode_tag: modes.ModeTag = @bitCast(tag);
     const mode = modes.modeFromInt(mode_tag.value, mode_tag.ansi) orelse return .invalid_value;
     t.modes.set(mode, value);
+    return .success;
+}
+
+pub fn mode_set_default(
+    terminal_: Terminal,
+    tag: modes.ModeTag.Backing,
+    value: bool,
+) callconv(lib.calling_conv) Result {
+    const t: *ZigTerminal = (terminal_ orelse return .invalid_value).terminal;
+    const mode_tag: modes.ModeTag = @bitCast(tag);
+    const mode = modes.modeFromInt(mode_tag.value, mode_tag.ansi) orelse return .invalid_value;
+    t.modes.setDefault(mode, value);
     return .success;
 }
 
@@ -1425,7 +1449,7 @@ test "resize shrinks both axes with cursor at bottom" {
     try testing.expectEqual(23, t.?.terminal.rows);
 }
 
-test "mode_get and mode_set" {
+test "mode_get, mode_set, and defaults" {
     var t: Terminal = null;
     try testing.expectEqual(Result.success, new(
         &lib.alloc.test_allocator,
@@ -1458,6 +1482,23 @@ test "mode_get and mode_set" {
     try testing.expectEqual(Result.success, mode_set(t, insert, true));
     try testing.expectEqual(Result.success, mode_get(t, insert, &value));
     try testing.expect(value);
+
+    // DEC mode 2027 (grapheme_cluster) has a separate reset default.
+    const grapheme_cluster: modes.ModeTag.Backing = @bitCast(modes.ModeTag{ .value = 2027, .ansi = false });
+    try testing.expectEqual(Result.success, mode_get_default(t, grapheme_cluster, &value));
+    try testing.expect(!value);
+
+    // Updating the default doesn't overwrite the current mode.
+    try testing.expectEqual(Result.success, mode_set_default(t, grapheme_cluster, true));
+    try testing.expectEqual(Result.success, mode_get_default(t, grapheme_cluster, &value));
+    try testing.expect(value);
+    try testing.expectEqual(Result.success, mode_get(t, grapheme_cluster, &value));
+    try testing.expect(!value);
+
+    // A reset restores the configured default.
+    reset(t);
+    try testing.expectEqual(Result.success, mode_get(t, grapheme_cluster, &value));
+    try testing.expect(value);
 }
 
 test "mode_get null" {
@@ -1469,6 +1510,13 @@ test "mode_get null" {
 test "mode_set null" {
     const tag: modes.ModeTag.Backing = @bitCast(modes.ModeTag{ .value = 25, .ansi = false });
     try testing.expectEqual(Result.invalid_value, mode_set(null, tag, true));
+}
+
+test "mode default null" {
+    var value: bool = undefined;
+    const tag: modes.ModeTag.Backing = @bitCast(modes.ModeTag{ .value = 2027, .ansi = false });
+    try testing.expectEqual(Result.invalid_value, mode_get_default(null, tag, &value));
+    try testing.expectEqual(Result.invalid_value, mode_set_default(null, tag, true));
 }
 
 test "mode_get unknown mode" {
@@ -1502,8 +1550,11 @@ test "mode_set unknown mode" {
     ));
     defer free(t);
 
+    var value: bool = undefined;
     const unknown: modes.ModeTag.Backing = @bitCast(modes.ModeTag{ .value = 9999, .ansi = false });
     try testing.expectEqual(Result.invalid_value, mode_set(t, unknown, true));
+    try testing.expectEqual(Result.invalid_value, mode_get_default(t, unknown, &value));
+    try testing.expectEqual(Result.invalid_value, mode_set_default(t, unknown, true));
 }
 
 test "vt_write" {

@@ -52,6 +52,26 @@ pub const ModeState = struct {
         }
     }
 
+    /// Set the default value restored for a mode during reset.
+    pub fn setDefault(self: *ModeState, mode: Mode, value: bool) void {
+        switch (mode) {
+            inline else => |mode_comptime| {
+                const entry = comptime entryForMode(mode_comptime);
+                @field(self.default, entry.name) = value;
+            },
+        }
+    }
+
+    /// Get the default value restored for a mode during reset.
+    pub fn getDefault(self: *const ModeState, mode: Mode) bool {
+        switch (mode) {
+            inline else => |mode_comptime| {
+                const entry = comptime entryForMode(mode_comptime);
+                return @field(self.default, entry.name);
+            },
+        }
+    }
+
     /// Save the state of the given mode. This can then be restored
     /// with restore. This will only be accurate if the previous
     /// mode was saved exactly once and not restored. Otherwise this
@@ -311,6 +331,13 @@ test ModeState {
     try testing.expect(!state.get(.cursor_keys));
     try testing.expect(state.restore(.cursor_keys));
     try testing.expect(state.get(.cursor_keys));
+
+    // Defaults are separate from the current value and restored on reset.
+    state.setDefault(.grapheme_cluster, true);
+    try testing.expect(state.getDefault(.grapheme_cluster));
+    try testing.expect(!state.get(.grapheme_cluster));
+    state.reset();
+    try testing.expect(state.get(.grapheme_cluster));
 }
 
 test "getReport known DEC mode" {
